@@ -43,10 +43,10 @@ export interface WalletInfo {
  */
 export async function isFreighterInstalled(): Promise<boolean> {
   if (typeof window === "undefined") return false;
+
   try {
-    const freighter = await import("@stellar/freighter-api");
-    const { isConnected } = await freighter.isConnected();
-    return isConnected;
+    await import("@stellar/freighter-api");
+    return true;
   } catch {
     return false;
   }
@@ -61,33 +61,38 @@ export async function connectWallet(): Promise<WalletInfo> {
     throw new Error("Wallet connection is only available in the browser.");
   }
 
-  const freighter = await import("@stellar/freighter-api");
-  const { isConnected } = await freighter.isConnected();
+  let freighter: typeof import("@stellar/freighter-api");
 
-  if (!isConnected) {
+  try {
+    freighter = await import("@stellar/freighter-api");
+  } catch {
     throw new Error(
       "Freighter wallet not detected. Please install the Freighter browser extension."
     );
   }
 
-  const addressResult = await freighter.requestAccess();
+  try {
+    // 1️⃣ Solicita acceso (esto abre popup si no está autorizado)
+    await freighter.requestAccess();
 
-  if (addressResult.error) {
+    // 2️⃣ Luego obtiene la public key correctamente
+    const publicKey = await freighter.getPublicKey();
+
+    if (!publicKey) {
+      throw new Error("Unable to retrieve public key from Freighter.");
+    }
+
+    return {
+      publicKey,
+      network: "TESTNET",
+    };
+  } catch (err) {
     throw new Error(
-      addressResult.error ?? "Failed to retrieve your public key from Freighter."
+      err instanceof Error
+        ? err.message
+        : "Freighter is installed but not responding. Make sure it is unlocked."
     );
   }
-
-  const publicKey = addressResult.address;
-
-  if (!publicKey) {
-    throw new Error("No public key returned from Freighter.");
-  }
-
-  return {
-    publicKey,
-    network: "TESTNET",
-  };
 }
 
 /**
