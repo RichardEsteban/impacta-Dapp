@@ -8,8 +8,6 @@ import {
   Copy,
   Hash,
   Clock,
-  FileOutput,
-  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -98,30 +96,6 @@ export function TransactionResultPanel({ result }: TransactionResultPanelProps) 
             {copied && (
               <span className="text-xs text-primary">Copied to clipboard!</span>
             )}
-          </div>
-        )}
-
-        {/* Ledger */}
-        {result.ledger && (
-          <div className="flex items-center gap-2 rounded-lg bg-secondary/50 p-3">
-            <Layers className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Ledger:</span>
-            <span className="font-mono text-xs text-foreground">
-              {result.ledger}
-            </span>
-          </div>
-        )}
-
-        {/* Return Value */}
-        {result.returnValue && (
-          <div className="flex flex-col gap-1.5 rounded-lg bg-secondary/50 p-3">
-            <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <FileOutput className="h-3 w-3" />
-              Return Value
-            </span>
-            <pre className="overflow-x-auto rounded-md bg-background p-3 font-mono text-xs text-foreground">
-              {result.returnValue}
-            </pre>
           </div>
         )}
 

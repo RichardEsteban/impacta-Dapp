@@ -1,20 +1,19 @@
 /**
- * Stellar Soroban integration utilities.
+ * Stellar XLM payment utilities.
  *
  * This module centralises every blockchain interaction so the rest of the app
  * stays framework-agnostic.  It is designed for the **Stellar Testnet** and
- * uses the Freighter browser-extension wallet.
+ * uses the Freighter browser-extension wallet for signing.
  *
- * NOTE: The heavy dependencies (`@stellar/stellar-sdk`, `@stellar/freighter-api`)
+ * NOTE: Heavy dependencies (`@stellar/stellar-sdk`, `@stellar/freighter-api`)
  * are imported dynamically so the module can be loaded safely on the server
- * during SSR — the actual calls only ever run in the browser.
+ * during SSR -- the actual calls only ever run in the browser.
  */
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-export const TESTNET_URL = "https://soroban-testnet.stellar.org";
 export const NETWORK_PASSPHRASE = "Test SDF Network ; September 2015";
 export const FRIENDBOT_URL = "https://friendbot.stellar.org";
 export const HORIZON_URL = "https://horizon-testnet.stellar.org";
@@ -23,19 +22,10 @@ export const HORIZON_URL = "https://horizon-testnet.stellar.org";
 // Types
 // ---------------------------------------------------------------------------
 
-export interface InvokeContractParams {
-  contractId: string;
-  functionName: string;
-  args: string[];        // JSON-stringified xdr ScVal arguments
-  publicKey: string;
-}
-
 export interface TransactionResult {
   status: "success" | "error";
   hash?: string;
-  returnValue?: string;
   error?: string;
-  ledger?: number;
   timestamp?: string;
 }
 
@@ -45,7 +35,7 @@ export interface WalletInfo {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers – lazy-loaded Stellar SDK wrappers
+// Helpers -- lazy-loaded Stellar SDK wrappers
 // ---------------------------------------------------------------------------
 
 /**
@@ -134,34 +124,32 @@ export async function getAccountBalance(
 }
 
 // ---------------------------------------------------------------------------
-// Contract invocation (stub – wired for @stellar/stellar-sdk)
+// XLM Payment via Horizon
 // ---------------------------------------------------------------------------
 
 /**
- * Build, simulate, sign (via Freighter) and submit a Soroban contract
- * invocation transaction.
- *
- * This is the main entry-point the UI calls.  Because the full Stellar SDK is
- * heavy we keep it behind a dynamic import so the initial page bundle stays
- * small.
+ * Build, sign (via Freighter) and submit a native XLM payment transaction
+ * on the Stellar Testnet using the Horizon server.
  */
-export async function invokeContract(
-  params: InvokeContractParams
+export async function sendXLM(
+  destination: string,
+  amount: string,
+  publicKey: string
 ): Promise<TransactionResult> {
-  const { contractId, functionName, args, publicKey } = params;
-
   // Input validation
-  if (!contractId || contractId.length !== 56) {
+  if (!destination || destination.length !== 56 || !destination.startsWith("G")) {
     return {
       status: "error",
-      error: "Invalid contract ID. Must be a 56-character Stellar contract address.",
+      error:
+        "Invalid destination address. Must be a 56-character Stellar public key starting with G.",
     };
   }
 
-  if (!functionName.trim()) {
+  const numericAmount = parseFloat(amount);
+  if (!amount || isNaN(numericAmount) || numericAmount <= 0) {
     return {
       status: "error",
-      error: "Function name is required.",
+      error: "Amount must be a positive number.",
     };
   }
 
@@ -172,78 +160,43 @@ export async function invokeContract(
     };
   }
 
+  if (destination === publicKey) {
+    return {
+      status: "error",
+      error: "Cannot send XLM to yourself.",
+    };
+  }
+
   try {
-    // -----------------------------------------------------------------------
-    // Dynamic imports – keeps bundle size in check
-    // -----------------------------------------------------------------------
+    // Dynamic imports -- keeps bundle size small
     const StellarSdk = await import("@stellar/stellar-sdk");
     const freighter = await import("@stellar/freighter-api");
 
-    const server = new StellarSdk.SorobanRpc.Server(TESTNET_URL);
+    const server = new StellarSdk.Horizon.Server(HORIZON_URL);
 
-    const sourceAccount = await server.getAccount(publicKey);
+    // Load source account from Horizon
+    const sourceAccount = await server.loadAccount(publicKey);
 
-    // Parse user-supplied arguments into native ScVal types
-    const parsedArgs = args
-      .filter((a) => a.trim() !== "")
-      .map((arg) => {
-        const trimmed = arg.trim();
+    // Fetch current base fee
+    const baseFee = await server.fetchBaseFee();
 
-        // Attempt numeric
-        if (/^-?\d+$/.test(trimmed)) {
-          return StellarSdk.nativeToScVal(BigInt(trimmed), { type: "i128" });
-        }
-
-        // Boolean
-        if (trimmed === "true" || trimmed === "false") {
-          return StellarSdk.nativeToScVal(trimmed === "true", {
-            type: "bool",
-          });
-        }
-
-        // Stellar address (G... or C...)
-        if (
-          /^[GC][A-Z2-7]{55}$/.test(trimmed)
-        ) {
-          return new StellarSdk.Address(trimmed).toScVal();
-        }
-
-        // Default: string
-        return StellarSdk.nativeToScVal(trimmed, { type: "string" });
-      });
-
-    const contract = new StellarSdk.Contract(contractId);
-
+    // Build the payment transaction
     const tx = new StellarSdk.TransactionBuilder(sourceAccount, {
-      fee: "100",
+      fee: String(baseFee),
       networkPassphrase: NETWORK_PASSPHRASE,
     })
-      .addOperation(contract.call(functionName, ...parsedArgs))
+      .addOperation(
+        StellarSdk.Operation.payment({
+          destination,
+          asset: StellarSdk.Asset.native(),
+          amount: numericAmount.toFixed(7),
+        })
+      )
       .setTimeout(30)
       .build();
 
-    // Simulate to get the authorised footprint
-    const simulated = await server.simulateTransaction(tx);
-
-    if (
-      StellarSdk.SorobanRpc.Api.isSimulationError(simulated)
-    ) {
-      return {
-        status: "error",
-        error: `Simulation failed: ${
-          (simulated as { error?: string }).error ?? "Unknown simulation error"
-        }`,
-      };
-    }
-
-    // Assemble the transaction with simulation results
-    const assembled = StellarSdk.SorobanRpc.assembleTransaction(
-      tx,
-      simulated as StellarSdk.SorobanRpc.Api.SimulateTransactionSuccessResponse
-    ).build();
-
     // Sign via Freighter
-    const signResult = await freighter.signTransaction(assembled.toXDR(), {
+    const signResult = await freighter.signTransaction(tx.toXDR(), {
       networkPassphrase: NETWORK_PASSPHRASE,
     });
 
@@ -259,51 +212,36 @@ export async function invokeContract(
       NETWORK_PASSPHRASE
     );
 
-    const sendResponse = await server.sendTransaction(signedTx);
-
-    if (sendResponse.status === "ERROR") {
-      return {
-        status: "error",
-        error: "Transaction submission failed.",
-      };
-    }
-
-    // Poll for completion
-    let getResponse = await server.getTransaction(sendResponse.hash);
-    const maxAttempts = 30;
-    let attempts = 0;
-
-    while (
-      getResponse.status === "NOT_FOUND" &&
-      attempts < maxAttempts
-    ) {
-      await new Promise((r) => setTimeout(r, 1000));
-      getResponse = await server.getTransaction(sendResponse.hash);
-      attempts++;
-    }
-
-    if (getResponse.status === "SUCCESS") {
-      return {
-        status: "success",
-        hash: sendResponse.hash,
-        returnValue: getResponse.returnValue
-          ? JSON.stringify(
-              StellarSdk.scValToNative(getResponse.returnValue),
-              null,
-              2
-            )
-          : undefined,
-        ledger: getResponse.ledger,
-        timestamp: new Date().toISOString(),
-      };
-    }
+    // Submit via Horizon
+    const response = await server.submitTransaction(
+      signedTx as StellarSdk.Transaction
+    );
 
     return {
-      status: "error",
-      hash: sendResponse.hash,
-      error: `Transaction failed with status: ${getResponse.status}`,
+      status: "success",
+      hash: response.hash,
+      timestamp: new Date().toISOString(),
     };
   } catch (err) {
+    // Horizon returns detailed error info in `response.data.extras`
+    if (
+      err &&
+      typeof err === "object" &&
+      "response" in err &&
+      (err as { response?: { data?: { extras?: { result_codes?: unknown } } } })
+        .response?.data?.extras?.result_codes
+    ) {
+      const codes = (
+        err as {
+          response: { data: { extras: { result_codes: Record<string, unknown> } } };
+        }
+      ).response.data.extras.result_codes;
+      return {
+        status: "error",
+        error: `Transaction failed: ${JSON.stringify(codes)}`,
+      };
+    }
+
     const message =
       err instanceof Error ? err.message : "An unknown error occurred.";
     return {
@@ -314,7 +252,7 @@ export async function invokeContract(
 }
 
 // ---------------------------------------------------------------------------
-// Utility – shorten a Stellar address for display
+// Utility -- shorten a Stellar address for display
 // ---------------------------------------------------------------------------
 
 export function shortenAddress(address: string, chars = 4): string {
