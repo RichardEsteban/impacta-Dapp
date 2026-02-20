@@ -2,14 +2,12 @@
 
 import { useWallet } from "@/context/wallet-context";
 import {
-  TESTNET_URL,
   HORIZON_URL,
   fundAccountWithFriendbot,
 } from "@/lib/stellar";
 import { Button } from "@/components/ui/button";
 import {
   Globe,
-  Server,
   Wallet,
   ExternalLink,
   Loader2,
@@ -119,21 +117,11 @@ export function InfoPanel() {
 
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2 rounded-lg bg-secondary p-3">
-            <Server className="h-4 w-4 text-muted-foreground" />
-            <div className="flex flex-col">
-              <span className="text-xs text-muted-foreground">
-                Soroban RPC
-              </span>
-              <span className="break-all font-mono text-xs text-foreground">
-                {TESTNET_URL}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 rounded-lg bg-secondary p-3">
             <Globe className="h-4 w-4 text-muted-foreground" />
             <div className="flex flex-col">
-              <span className="text-xs text-muted-foreground">Horizon</span>
+              <span className="text-xs text-muted-foreground">
+                Horizon Server
+              </span>
               <span className="break-all font-mono text-xs text-foreground">
                 {HORIZON_URL}
               </span>
@@ -190,13 +178,13 @@ export function InfoPanel() {
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-secondary font-mono text-xs text-foreground">
               4
             </span>
-            Enter a contract ID and function
+            Enter a destination address and amount
           </li>
           <li className="flex gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-secondary font-mono text-xs text-foreground">
               5
             </span>
-            Add arguments and invoke
+            Send XLM and view the transaction
           </li>
         </ol>
       </div>

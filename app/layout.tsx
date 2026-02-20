@@ -15,9 +15,9 @@ const _jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Impacta - Stellar Soroban dApp',
+  title: 'Impacta - Stellar XLM Payments',
   description:
-    'Interact with Stellar Soroban smart contracts on testnet. Connect your Freighter wallet, invoke contract functions, and view transaction results.',
+    'Send native XLM payments on Stellar Testnet. Connect your Freighter wallet, enter a destination and amount, and submit transactions.',
   generator: 'v0.app',
   icons: {
     icon: [

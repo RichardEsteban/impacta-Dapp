@@ -14,7 +14,7 @@ export function WalletAlert() {
   const message = error
     ? error
     : !isInstalled
-      ? "Freighter wallet extension not detected. Install it to interact with Soroban contracts."
+      ? "Freighter wallet extension not detected. Install it to send XLM payments."
       : null;
 
   if (!message) return null;
