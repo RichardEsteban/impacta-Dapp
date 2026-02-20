@@ -39,38 +39,64 @@ export interface WalletInfo {
 // ---------------------------------------------------------------------------
 
 /**
- * Check whether the Freighter extension is available in the current browser.
+ * Detect whether the Freighter browser extension is installed.
+ *
+ * Freighter injects a global `window.freighterApi` object into the page.
+ * We check for its presence rather than calling `isConnected()`, which only
+ * reports whether the *user has already authorised this site* -- not whether
+ * the extension itself is present.
  */
-export async function isFreighterInstalled(): Promise<boolean> {
+export function isFreighterInstalled(): boolean {
   if (typeof window === "undefined") return false;
-  try {
-    const freighter = await import("@stellar/freighter-api");
-    const { isConnected } = await freighter.isConnected();
-    return isConnected;
-  } catch {
-    return false;
-  }
+  return !!(window as WindowWithFreighter).freighterApi;
+}
+
+/** Augment Window so TypeScript knows about the injected global. */
+interface WindowWithFreighter extends Window {
+  freighterApi?: Record<string, unknown>;
 }
 
 /**
- * Request the user's public key from Freighter and ensure the wallet is on the
- * Stellar Testnet.
+ * Request the user's public key from Freighter.
+ *
+ * This function does **not** pre-gate on `isConnected()`.  Instead it calls
+ * `requestAccess()` directly -- Freighter will prompt the user to authorise
+ * the site if needed.  If the extension is missing entirely, the dynamic
+ * import will succeed but `requestAccess()` will throw or return an error,
+ * which we surface as a clear message.
  */
 export async function connectWallet(): Promise<WalletInfo> {
   if (typeof window === "undefined") {
     throw new Error("Wallet connection is only available in the browser.");
   }
 
-  const freighter = await import("@stellar/freighter-api");
-  const { isConnected } = await freighter.isConnected();
-
-  if (!isConnected) {
+  // Quick check: is the extension even present?
+  if (!isFreighterInstalled()) {
     throw new Error(
-      "Freighter wallet not detected. Please install the Freighter browser extension."
+      "Freighter wallet not detected. Please install the Freighter browser extension from https://freighter.app"
     );
   }
 
-  const addressResult = await freighter.requestAccess();
+  let freighter: typeof import("@stellar/freighter-api");
+  try {
+    freighter = await import("@stellar/freighter-api");
+  } catch {
+    throw new Error(
+      "Failed to load the Freighter API. Please refresh the page and try again."
+    );
+  }
+
+  // Call requestAccess -- this prompts the user if the site is not yet authorised.
+  let addressResult: { address: string; error: string };
+  try {
+    addressResult = await freighter.requestAccess();
+  } catch (err) {
+    throw new Error(
+      err instanceof Error
+        ? err.message
+        : "Freighter did not respond. Make sure the extension is unlocked and try again."
+    );
+  }
 
   if (addressResult.error) {
     throw new Error(

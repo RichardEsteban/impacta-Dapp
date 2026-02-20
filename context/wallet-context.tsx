@@ -61,15 +61,35 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [balance, setBalance] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Check for Freighter on mount
+  // Detect the Freighter extension on mount.
+  // `isFreighterInstalled()` is synchronous (checks `window.freighterApi`).
+  // We run it inside useEffect because the global may be injected after the
+  // initial script evaluation, so we also poll briefly to cover slow extensions.
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const installed = await isFreighterInstalled();
-      if (!cancelled) setIsInstalled(installed);
-    })();
+
+    const check = () => {
+      if (cancelled) return;
+      const installed = isFreighterInstalled();
+      setIsInstalled(installed);
+      return installed;
+    };
+
+    // Immediate check
+    if (check()) return;
+
+    // Freighter may inject its global slightly after page load.
+    // Poll a few times over the first 2 seconds to catch late injection.
+    const intervals = [200, 500, 1000, 2000];
+    const timers = intervals.map((ms) =>
+      setTimeout(() => {
+        check();
+      }, ms)
+    );
+
     return () => {
       cancelled = true;
+      timers.forEach(clearTimeout);
     };
   }, []);
 
