@@ -174,10 +174,12 @@ export async function sendXLM(
 
   try {
     // Dynamic imports -- keeps bundle size small
+
     const StellarSdk = await import("@stellar/stellar-sdk");
+    const { Horizon } = StellarSdk;
     const freighter = await import("@stellar/freighter-api");
 
-    const server = new StellarSdk.Horizon.Server(HORIZON_URL);
+    const server = new Horizon.Server(HORIZON_URL);
 
     // Load source account from Horizon
     const sourceAccount = await server.loadAccount(publicKey);
@@ -201,26 +203,18 @@ export async function sendXLM(
       .build();
 
     // Sign via Freighter
-    const signResult = await freighter.signTransaction(tx.toXDR(), {
+    const signedXdr = await freighter.signTransaction(tx.toXDR(), {
       networkPassphrase: NETWORK_PASSPHRASE,
+      accountToSign: publicKey,
     });
 
-    if (signResult.error) {
-      return {
-        status: "error",
-        error: signResult.error ?? "Transaction signing was rejected.",
-      };
-    }
-
     const signedTx = StellarSdk.TransactionBuilder.fromXDR(
-      signResult.signedTxXdr,
+      signedXdr,
       NETWORK_PASSPHRASE
     );
 
     // Submit via Horizon
-    const response = await server.submitTransaction(
-      signedTx as StellarSdk.Transaction
-    );
+    const response = await server.submitTransaction(signedTx);
 
     return {
       status: "success",
