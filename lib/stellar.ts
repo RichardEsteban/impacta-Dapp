@@ -48,7 +48,18 @@ export interface WalletInfo {
  */
 export function isFreighterInstalled(): boolean {
   if (typeof window === "undefined") return false;
-  return !!(window as WindowWithFreighter).freighterApi;
+  
+  // Check multiple possible ways Freighter injects itself
+  const freighter = (window as any).freighterApi;
+  const stellar = (window as any).stellar;
+  
+  console.log("Checking for Freighter:", {
+    freighterApi: !!freighter,
+    stellar: !!stellar,
+    windowKeys: Object.keys(window).filter(k => k.toLowerCase().includes('freight') || k.toLowerCase().includes('stellar'))
+  });
+  
+  return !!(freighter || stellar);
 }
 
 /** Augment Window so TypeScript knows about the injected global. */
@@ -86,16 +97,31 @@ export async function connectWallet(): Promise<WalletInfo> {
     );
   }
 
-  // Call requestAccess -- this prompts the user if the site is not yet authorised.
+  // Try multiple methods to get the public key
   let addressResult: { address: string; error: string };
   try {
-    addressResult = await freighter.requestAccess();
+    // Method 1: Standard Freighter API
+    const result = await freighter.requestAccess();
+    addressResult = typeof result === 'string' 
+      ? { address: result, error: '' }
+      : result;
   } catch (err) {
-    throw new Error(
-      err instanceof Error
-        ? err.message
-        : "Freighter did not respond. Make sure the extension is unlocked and try again."
-    );
+    console.log("Standard method failed, trying alternative...");
+    
+    // Method 2: Try direct window.stellar if available
+    try {
+      const stellar = (window as any).stellar;
+      if (stellar && stellar.getPublicKey) {
+        const key = await stellar.getPublicKey();
+        addressResult = { address: key, error: '' };
+      } else {
+        throw err;
+      }
+    } catch (altErr) {
+      throw new Error(
+        `Freighter did not respond. Make sure the extension is unlocked and try again. Error: ${err instanceof Error ? err.message : 'Unknown'}`
+      );
+    }
   }
 
   if (addressResult.error) {
@@ -226,21 +252,26 @@ export async function sendXLM(
       networkPassphrase: NETWORK_PASSPHRASE,
     });
 
-    if (signResult.error) {
+    // Handle both string and object return types
+    const signResultObj = typeof signResult === 'string' 
+      ? { signedTxXdr: signResult, error: '' }
+      : signResult;
+
+    if (signResultObj.error) {
       return {
         status: "error",
-        error: signResult.error ?? "Transaction signing was rejected.",
+        error: signResultObj.error ?? "Transaction signing was rejected.",
       };
     }
 
     const signedTx = StellarSdk.TransactionBuilder.fromXDR(
-      signResult.signedTxXdr,
+      signResultObj.signedTxXdr,
       NETWORK_PASSPHRASE
     );
 
     // Submit via Horizon
     const response = await server.submitTransaction(
-      signedTx as StellarSdk.Transaction
+      signedTx as any
     );
 
     return {
