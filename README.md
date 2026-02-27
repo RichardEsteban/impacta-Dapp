@@ -22,7 +22,7 @@ El flujo es simple: el comprador deposita fondos en una cuenta de custodia tempo
 
 ## El Problema
 
-Las transacciones en Facebook Marketplace, OLX e Instagram en Latinoamérica sufren de:
+Las transacciones en Facebook Marketplace,Instagram en Latinoamérica sufren de:
 
 - Vendedores que reciben el pago y no envían el producto
 - Compradores que reciben el producto y realizan contracargos
