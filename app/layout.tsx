@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { WalletProvider } from '@/context/wallet-context'
+import { EscrowProvider } from '@/context/EscrowContext'
 import './globals.css'
 
 const _inter = Inter({
@@ -55,7 +56,9 @@ export default function RootLayout({
         className={`${_inter.variable} ${_jetbrainsMono.variable} font-sans antialiased`}
       >
         <WalletProvider>
-          {children}
+          <EscrowProvider>
+            {children}
+          </EscrowProvider>
         </WalletProvider>
         <Analytics />
       </body>
