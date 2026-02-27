@@ -52,14 +52,17 @@ export function isFreighterInstalled(): boolean {
   // Check multiple possible ways Freighter injects itself
   const freighter = (window as any).freighterApi;
   const stellar = (window as any).stellar;
+  const freighterAlt = (window as any).freighter;
   
   console.log("Checking for Freighter:", {
     freighterApi: !!freighter,
     stellar: !!stellar,
+    freighter: !!freighterAlt,
     windowKeys: Object.keys(window).filter(k => k.toLowerCase().includes('freight') || k.toLowerCase().includes('stellar'))
   });
   
-  return !!(freighter || stellar);
+  // Return true if any method is available
+  return !!(freighter || stellar || freighterAlt);
 }
 
 /** Augment Window so TypeScript knows about the injected global. */
@@ -81,10 +84,24 @@ export async function connectWallet(): Promise<WalletInfo> {
     throw new Error("Wallet connection is only available in the browser.");
   }
 
+  // Development bypass - remove this in production
+  if (process.env.NODE_ENV === 'development') {
+    const urlParams = new URLSearchParams(window.location.search);
+    const bypassKey = urlParams.get('bypass');
+    if (bypassKey && bypassKey.startsWith('G') && bypassKey.length === 56) {
+      console.log("🔧 Development bypass detected");
+      return {
+        publicKey: bypassKey,
+        network: "TESTNET",
+      };
+    }
+  }
+
   // Quick check: is the extension even present?
   if (!isFreighterInstalled()) {
     throw new Error(
-      "Freighter wallet not detected. Please install the Freighter browser extension from https://freighter.app"
+      "Freighter wallet not detected. Please install the Freighter browser extension from https://freighter.app\n\n" +
+      "Development tip: Add ?bypass=G_YOUR_TESTNET_KEY to the URL to skip wallet detection"
     );
   }
 
