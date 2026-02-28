@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TransactionResultPanel } from "@/components/transaction-result";
-import { Loader2, Send, ArrowUpRight, CircleDollarSign } from "lucide-react";
+import { Loader2, Send, ArrowUpRight, Coins, Wallet } from "lucide-react";
 
 export function SendPayment() {
   const { wallet, refreshBalance } = useWallet();
@@ -34,7 +34,7 @@ export function SendPayment() {
     } catch (err) {
       setResult({
         status: "error",
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: err instanceof Error ? err.message : "Error desconocido",
       });
     } finally {
       setIsLoading(false);
@@ -48,74 +48,106 @@ export function SendPayment() {
     !isNaN(numericAmount) &&
     numericAmount > 0;
 
+  const isDestinationInvalid =
+    destination.length > 0 &&
+    (destination.length !== 56 || !destination.startsWith("G"));
+
+  const isAmountInvalid = !!amount && (isNaN(numericAmount) || numericAmount <= 0);
+
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       {/* Form Card */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <ArrowUpRight className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">
-              Send XLM
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Send native XLM to any Stellar address on Testnet
-            </p>
+      <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
+        {/* Card Header with gradient accent */}
+        <div className="relative px-6 py-5 border-b border-border/50">
+          <div className="absolute inset-0 gradient-primary opacity-5" />
+          <div className="relative flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary shadow-lg">
+              <ArrowUpRight className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-foreground">
+                Enviar XLM
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Transferencia directa en la red Stellar Testnet
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-5">
+        <div className="p-6 flex flex-col gap-5">
           {/* Destination Address */}
           <div className="flex flex-col gap-2">
             <Label
               htmlFor="destination"
-              className="flex items-center gap-2 text-sm font-medium text-foreground"
+              className="flex items-center gap-2 text-sm font-semibold text-foreground"
             >
-              <Send className="h-3.5 w-3.5 text-muted-foreground" />
-              Destination Address
+              <Send className="h-3.5 w-3.5 text-primary" />
+              Dirección de Destino
             </Label>
-            <Input
-              id="destination"
-              placeholder="G... (56-character Stellar public key)"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              className="font-mono text-sm"
-              spellCheck={false}
-              autoComplete="off"
-            />
-            {destination.length > 0 &&
-              (destination.length !== 56 || !destination.startsWith("G")) && (
-                <p className="text-xs text-destructive">
-                  Must be a 56-character Stellar address starting with G
-                </p>
-              )}
+            <div className="relative">
+              <Input
+                id="destination"
+                placeholder="G... (clave pública Stellar de 56 caracteres)"
+                value={destination}
+                onChange={(e) => setDestination(e.target.value)}
+                className={`font-mono text-xs bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-all pr-4 ${
+                  isDestinationInvalid ? "border-destructive/50 focus:border-destructive/50" : ""
+                } ${
+                  destination.length === 56 && destination.startsWith("G")
+                    ? "border-success/50 focus:border-success/50"
+                    : ""
+                }`}
+                spellCheck={false}
+                autoComplete="off"
+              />
+            </div>
+            {isDestinationInvalid && (
+              <p className="flex items-center gap-1.5 text-xs text-destructive">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-destructive" />
+                Debe ser una dirección Stellar de 56 caracteres comenzando con G
+              </p>
+            )}
+            {destination.length === 56 && destination.startsWith("G") && (
+              <p className="flex items-center gap-1.5 text-xs text-success">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-success" />
+                Dirección válida
+              </p>
+            )}
           </div>
 
           {/* Amount */}
           <div className="flex flex-col gap-2">
             <Label
               htmlFor="amount"
-              className="flex items-center gap-2 text-sm font-medium text-foreground"
+              className="flex items-center gap-2 text-sm font-semibold text-foreground"
             >
-              <CircleDollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-              Amount (XLM)
+              <Coins className="h-3.5 w-3.5 text-primary" />
+              Monto (XLM)
             </Label>
-            <Input
-              id="amount"
-              type="number"
-              placeholder="0.00"
-              min="0.0000001"
-              step="any"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="text-sm"
-              autoComplete="off"
-            />
-            {amount && (isNaN(numericAmount) || numericAmount <= 0) && (
-              <p className="text-xs text-destructive">
-                Amount must be a positive number
+            <div className="relative">
+              <Input
+                id="amount"
+                type="number"
+                placeholder="0.00"
+                min="0.0000001"
+                step="any"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className={`text-sm bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-all pr-16 ${
+                  isAmountInvalid ? "border-destructive/50 focus:border-destructive/50" : ""
+                }`}
+                autoComplete="off"
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <span className="text-xs font-bold text-primary">XLM</span>
+              </div>
+            </div>
+            {isAmountInvalid && (
+              <p className="flex items-center gap-1.5 text-xs text-destructive">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-destructive" />
+                El monto debe ser un número positivo
               </p>
             )}
           </div>
@@ -124,21 +156,29 @@ export function SendPayment() {
           <Button
             onClick={handleSend}
             disabled={!wallet || !isValid || isLoading}
-            className="mt-2 gap-2"
+            className="mt-1 gap-2 gradient-primary border-0 text-white font-semibold h-11 text-sm shadow-lg hover:opacity-90 transition-opacity disabled:opacity-40"
             size="lg"
           >
             {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Enviando...
+              </>
             ) : (
-              <Send className="h-4 w-4" />
+              <>
+                <Send className="h-4 w-4" />
+                Enviar XLM
+              </>
             )}
-            {isLoading ? "Sending..." : "Send XLM"}
           </Button>
 
           {!wallet && (
-            <p className="text-center text-sm text-muted-foreground">
-              Connect your Freighter wallet to send payments.
-            </p>
+            <div className="flex items-center justify-center gap-2 rounded-xl bg-secondary/50 p-3">
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+              <p className="text-center text-sm text-muted-foreground">
+                Conecta tu wallet Freighter para enviar pagos.
+              </p>
+            </div>
           )}
         </div>
       </div>

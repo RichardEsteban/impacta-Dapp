@@ -30,55 +30,63 @@ export function TransactionResultPanel({ result }: TransactionResultPanelProps) 
 
   return (
     <div
-      className={`rounded-xl border p-6 ${
+      className={`rounded-2xl border overflow-hidden ${
         isSuccess
-          ? "border-primary/30 bg-primary/5"
-          : "border-destructive/30 bg-destructive/5"
+          ? "border-success/20 bg-success/5"
+          : "border-destructive/20 bg-destructive/5"
       }`}
     >
       {/* Status header */}
-      <div className="mb-4 flex items-center gap-3">
-        {isSuccess ? (
-          <CheckCircle2 className="h-6 w-6 text-primary" />
-        ) : (
-          <XCircle className="h-6 w-6 text-destructive" />
-        )}
-        <div>
-          <h3
-            className={`text-base font-semibold ${
-              isSuccess ? "text-primary" : "text-destructive"
-            }`}
-          >
-            {isSuccess ? "Transaction Successful" : "Transaction Failed"}
-          </h3>
-          {result.timestamp && (
-            <p className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              {new Date(result.timestamp).toLocaleString()}
-            </p>
-          )}
+      <div className={`px-6 py-4 border-b ${
+        isSuccess ? "border-success/15" : "border-destructive/15"
+      }`}>
+        <div className="flex items-center gap-3">
+          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+            isSuccess ? "bg-success/15" : "bg-destructive/15"
+          }`}>
+            {isSuccess ? (
+              <CheckCircle2 className="h-5 w-5 text-success" />
+            ) : (
+              <XCircle className="h-5 w-5 text-destructive" />
+            )}
+          </div>
+          <div>
+            <h3
+              className={`text-base font-bold ${
+                isSuccess ? "text-success" : "text-destructive"
+              }`}
+            >
+              {isSuccess ? "¡Transacción Exitosa!" : "Transacción Fallida"}
+            </h3>
+            {result.timestamp && (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                <Clock className="h-3 w-3" />
+                {new Date(result.timestamp).toLocaleString("es-PE")}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="p-6 flex flex-col gap-3">
         {/* Transaction Hash */}
         {result.hash && (
-          <div className="flex flex-col gap-1.5 rounded-lg bg-secondary/50 p-3">
-            <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <Hash className="h-3 w-3" />
-              Transaction Hash
+          <div className="flex flex-col gap-2 rounded-xl bg-secondary/50 p-4">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+              <Hash className="h-3.5 w-3.5" />
+              Hash de Transacción
             </span>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 break-all font-mono text-xs text-foreground">
+            <div className="flex items-start gap-2">
+              <code className="flex-1 break-all font-mono text-xs text-foreground leading-relaxed">
                 {result.hash}
               </code>
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1 mt-0.5">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
                   onClick={handleCopyHash}
-                  aria-label="Copy transaction hash"
+                  aria-label="Copiar hash de transacción"
                 >
                   <Copy className="h-3.5 w-3.5" />
                 </Button>
@@ -86,24 +94,40 @@ export function TransactionResultPanel({ result }: TransactionResultPanelProps) 
                   href={`https://stellar.expert/explorer/testnet/tx/${result.hash}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  aria-label="View on Stellar Expert"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                  aria-label="Ver en Stellar Expert"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               </div>
             </div>
             {copied && (
-              <span className="text-xs text-primary">Copied to clipboard!</span>
+              <span className="flex items-center gap-1.5 text-xs font-medium text-success">
+                <CheckCircle2 className="h-3 w-3" />
+                ¡Copiado al portapapeles!
+              </span>
             )}
           </div>
         )}
 
         {/* Error */}
         {result.error && (
-          <div className="rounded-lg bg-destructive/10 p-3">
-            <p className="text-sm text-destructive">{result.error}</p>
+          <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-4">
+            <p className="text-sm text-destructive font-medium">{result.error}</p>
           </div>
+        )}
+
+        {/* View on explorer button */}
+        {isSuccess && result.hash && (
+          <a
+            href={`https://stellar.expert/explorer/testnet/tx/${result.hash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 rounded-xl border border-success/20 bg-success/10 p-3 text-sm font-semibold text-success transition-all hover:bg-success/15 hover:border-success/30"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Ver en Stellar Expert
+          </a>
         )}
       </div>
     </div>
